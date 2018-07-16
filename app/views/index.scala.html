@@ -1,0 +1,9 @@
+@(getBooks: List[Library], BookForm: Form[(String, String,  String)])(implicit request: RequestHeader, messagesProvider: MessagesProvider)
+
+@import helper._
+
+@helper.form(action = routes.Application.createBook()) {
+    @helper.inputText(BookForm("Title"))
+    @helper.inputText(BookForm("Year"))
+    @helper.inputText(BookForm("Authors"))
+}
