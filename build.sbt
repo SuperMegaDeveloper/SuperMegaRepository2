@@ -16,6 +16,8 @@ libraryDependencies ++= Seq( jdbc , ehcache , ws , specs2 % Test , guice )
 
 unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/test" )
 
-libraryDependencies ++= Seq(
-  "com.typesafe.play" %% "anorm" % "2.5.1"
-)
+libraryDependencies += "com.typesafe.play" %% "anorm" % "2.5.3"
+
+libraryDependencies += "com.h2database" % "h2" % "1.4.192"
+
+libraryDependencies += evolutions

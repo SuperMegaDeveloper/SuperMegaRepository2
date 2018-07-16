@@ -8,35 +8,36 @@ import models.Library
 
 
 @Singleton
-class Application @Inject()(cc: ControllerComponents)
+class Application @Inject()(cc: ControllerComponents, library: Library)
   extends AbstractController(cc) with play.api.i18n.I18nSupport{
+
 
   def createBook() = Action { implicit request =>
     BookForm.bindFromRequest.fold(
-      errors => BadRequest(views.html.index(Library.allBooks(), errors)),
-      { case (title, year, authors) => Library.create(title, year, authors);
-        Redirect(routes.Application.getBook)
+      errors => BadRequest(views.html.index(library.allBooks(), errors)),
+      { case (title, year, authors) => library.create(title, year, authors);
+        Redirect(routes.Application.getBooks)
       }
     )
   }
 
   def getBooks = Action { implicit request =>
-    Ok(views.html.index(Library.allBooks(), BookForm));
+    Ok(views.html.index(library.allBooks(), BookForm));
   }
 
   def getAuthors = Action { implicit request =>
-    Ok(views.html.authors(Library.allAuthors()));
+    Ok(views.html.authors(library.allAuthors()));
   }
 
 
   def deleteBook(title: String, year: String, authors: String) = Action { implicit request =>
-    Library.delete(title, year, authors);
-    Redirect(routes.Application.getBook)
+    library.delete(title, year, authors);
+    Redirect(routes.Application.getBooks)
   }
 
   def updateBook(title: String, year: String, authors: String) = Action { implicit request =>
-    Library.update(title, year, authors);
-    Redirect(routes.Application.getBook)
+    library.update(title, year, authors);
+    Redirect(routes.Application.getBooks)
   }
 
   val BookForm = Form(
@@ -48,3 +49,4 @@ class Application @Inject()(cc: ControllerComponents)
   )
 
 }
+
