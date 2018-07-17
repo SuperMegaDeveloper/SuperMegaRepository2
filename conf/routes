@@ -13,8 +13,8 @@ GET     /message                    controllers.AsyncController.message
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
 
 #Library
-POST    /create                        controllers.Application.createBook
+POST    /                               controllers.Application.createBook
 GET     /                              controllers.Application.getBooks
 GET     /allAuthors                    controllers.Application.getAuthors
 # DELETE  /deleteBook                    controllers.Application.deleteBook
-# PUT     /upadteBook                    controllers.Application.updateBook
+# PUT     /updateBook                    controllers.Application.updateBook

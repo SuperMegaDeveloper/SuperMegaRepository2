@@ -7,7 +7,7 @@ CREATE TABLE books (
     book_id bigint(20) NOT NULL AUTO_INCREMENT,
     title varchar(2000) NOT NULL,
     year varchar(40) NOT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (book_id)
 );
 
 CREATE TABLE authors (
@@ -22,6 +22,10 @@ CREATE TABLE booksAndAuthors (
     author_id integer,
     PRIMARY KEY (id)
 );
+
+INSERT INTO books SET title='TEST', year=1990;
+INSERT INTO authors SET name='TESTOVICH';
+INSERT INTO booksAndAuthors SET book_id=1, author_id=1;
 
 
 

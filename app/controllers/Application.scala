@@ -9,17 +9,23 @@ import models.Library
 
 @Singleton
 class Application @Inject()(cc: ControllerComponents, library: Library)
-  extends AbstractController(cc) with play.api.i18n.I18nSupport{
+  extends AbstractController(cc) with play.api.i18n.I18nSupport {
 
 
-  def createBook() = Action { implicit request =>
+  def createBook = Action { implicit request =>
     BookForm.bindFromRequest.fold(
-      errors => BadRequest(views.html.index(library.allBooks(), errors)),
-      { case (title, year, authors) => library.create(title, year, authors);
-        Redirect(routes.Application.getBooks)
+
+      formWithErrors => {
+        BadRequest(views.html.index(library.allBooks(), formWithErrors))
+      }, userData => {
+        println("----------------"+userData.authors+"-----------------")
+        library.create(userData.title, userData.year, userData.authors)
+        Redirect(routes.Application.getBooks())
       }
     )
+
   }
+
 
   def getBooks = Action { implicit request =>
     Ok(views.html.index(library.allBooks(), BookForm));
@@ -32,21 +38,24 @@ class Application @Inject()(cc: ControllerComponents, library: Library)
 
   def deleteBook(title: String, year: String, authors: String) = Action { implicit request =>
     library.delete(title, year, authors);
-    Redirect(routes.Application.getBooks)
+    Redirect(routes.Application.getBooks())
   }
 
   def updateBook(title: String, year: String, authors: String) = Action { implicit request =>
     library.update(title, year, authors);
-    Redirect(routes.Application.getBooks)
+    Redirect(routes.Application.getBooks())
   }
 
   val BookForm = Form(
-    tuple (
+    mapping (
       "title" -> nonEmptyText,
       "year" -> nonEmptyText,
-      "Authors" -> nonEmptyText
-    )
+      "authors" -> nonEmptyText
+    )(form.apply)(form.unapply)
   )
 
 }
+
+case class form(title: String, year:String, authors: String)
+
 

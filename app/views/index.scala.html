@@ -1,12 +1,23 @@
-@(getBooks: List[Parser], BookForm: Form[(String, String,  String)])(implicit request: RequestHeader, messagesProvider: MessagesProvider)
+@(getBooks: List[Book], BookForm: Form[form])(implicit request: RequestHeader, messagesProvider: MessagesProvider)
 
 @import helper._
 
 
 <h1>Your books:</h1>
 
-@helper.form(action = routes.Application.createBook()) {
-    @helper.inputText(BookForm("Title"))
-    @helper.inputText(BookForm("Year"))
-    @helper.inputText(BookForm("Authors"))
+
+<ul>
+    @for(book <- getBooks) {
+    <li>@book.title, @book.year, @book.name</li>
+    }
+</ul>
+
+
+<h1>Add books:</h1>
+@helper.form(action =routes.Application.createBook()) {
+@CSRF.formField
+    @helper.inputText(BookForm("title"))
+    @helper.inputText(BookForm("year"))
+    @helper.inputText(BookForm("authors"))
+    <input type="submit" value="Create">
 }

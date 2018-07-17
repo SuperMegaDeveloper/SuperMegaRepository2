@@ -1,65 +1,77 @@
 package models
-import java.util
+
 
 import anorm._
-import anorm.SqlParser._
+
 import com.google.inject.Inject
-import play.db.{DBApi, Database}
+import play.api.db.{DBApi}
 
 class Library @Inject()(
 dbApi: DBApi) {
 
 
+  val DB = dbApi.database("default")
 
-  val DB = dbApi.getDatabase("test1")
 
-  val book = {
-    get[String]("title") ~
-      get[String]("year") ~
-      get[String]("name") map {
-      case title ~ year ~ name => Parser(title, year, name)
-    }
-  }
-
-  def allBooks() = {
+  def allBooks(): List[Book] = {
     DB.withConnection { implicit connection =>
-      SQL("SELECT * FROM (books JOIN booksAndAuthors USING (book_id)) JOIN authors USING (author_id);").as(book *)
+      SQL("SELECT * FROM books LEFT JOIN booksAndAuthors ON books.book_id=booksAndAuthors.book_id LEFT JOIN authors ON booksAndAuthors.author_id=authors.author_id;").as(Book.parser.*)
     }
   }
 
-  def allAuthors() : List[Parser] = {
+  def allAuthors(): List[Book] = {
     DB.withConnection { implicit connection =>
-      SQL("SELECT * FROM authors;").as(book *)
+      SQL("SELECT * FROM authors;").as(Book.parser.*)
     }
   }
 
 
+  def create(title: String, year: String, authors: String): Unit = {
 
-    def create(title: String, year: String, authors: String): Unit = {
+    DB.withConnection { implicit connection =>
 
-      DB.withConnection { implicit connection =>
-        SQL("insert into books (title,year) values ({title},{year})").on(
-          'title -> title,
-          'year -> year
-        ).executeUpdate()
+      val book_id = SQL("insert into books SET title={title}, year={year}").on(
+        'title -> title,
+        'year -> year
+      ).executeInsert()
+
+
+      val namesOfAuthors: Array[String] = authors.split(", ")
+
+      for (i <- 0 until namesOfAuthors.length) {
+        val author_id = SQL("insert into authors SET name={name}").on(
+          'name -> namesOfAuthors(i)).executeInsert()
+
+
+        SQL("INSERT INTO booksAndAuthors SET book_id={book_id}, author_id={author_id}").on(
+          'book_id -> book_id,
+          'author_id -> author_id
+        ).execute
       }
 
-      DB.withConnection { implicit connection =>
-        SQL("insert into authors (name) values ({author})").on(
-          'authors -> authors).executeUpdate()
-      }
     }
 
-    def delete(title: String, year: String, authors: String) {}
-
-    def update(title: String, year: String, authors: String) {}
+  }
 
 
+  def delete(title: String, year: String, authors: String): Unit = {
+    DB.withConnection { implicit connection =>
+      SQL("DELETE title, year from books where title={title}, year={year}").on(
+        'title -> title,
+        'year -> year
+      ).execute()
+
+    }
+  }
+
+  def update(title: String, year: String, authors: String): Unit = {
+
+  }
 
 
-}
+  object Library {
 
-object Library {
+  }
 
 }
 
