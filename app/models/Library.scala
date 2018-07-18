@@ -14,13 +14,10 @@ dbApi: DBApi) {
 
 
   def allBooks(): List[Book] = {
-<<<<<<< HEAD
+
     DB.withConnection { implicit connection =>
       SQL("SELECT title, year, name FROM (SELECT books.title, books.year, GROUP_CONCAT(name) as name FROM books LEFT JOIN booksAndAuthors ON books.book_id=booksAndAuthors.book_id LEFT JOIN authors ON booksAndAuthors.author_id=authors.author_id GROUP BY title) GROUP BY title;").as(Book.parser.*)
-=======
-    val books: List[Book] = DB.withConnection { implicit connection =>
-      SQL("SELECT * FROM books LEFT JOIN booksAndAuthors ON books.book_id=booksAndAuthors.book_id LEFT JOIN authors ON booksAndAuthors.author_id=authors.author_id;").as(Book.parser.*)
->>>>>>> 7fadd3c348aba0275c02ff55e41576a725bd3510
+
     }
   }
 
@@ -65,7 +62,7 @@ dbApi: DBApi) {
     }
   }
 
-<<<<<<< HEAD
+
   def update(titleOld: String, title: String, year: String, authors: String): Unit = {
     DB.withConnection { implicit connection =>
       SQL("UPDATE books SET title={title}, year={year} WHERE title={titleOld}")
@@ -78,7 +75,7 @@ dbApi: DBApi) {
 
       val BOOKId = SQL("SELECT book_id FROM books WHERE title={title}").on(
         'title -> title
-      ).as(BOOK_id.parserBookId.*)
+      ).as(BOOK_id.parserBookId. *)
 
 
       val AUTHORId = SQL("SELECT author_id FROM authors WHERE name={name}").on(
@@ -105,35 +102,6 @@ dbApi: DBApi) {
         ).execute()
       }
     }
-
-=======
-  def update(titleOld: String, title:String, year: String, authors: String): Unit = {
-    DB.withConnection { implicit connection =>
-      SQL("UPDATE books SET title={title} AND year={year} WHERE title={titleOld}")
-        .on(
-        'title -> title,
-        'year -> year,
-        'titleOld -> titleOld
-      )
-        .execute
-
-
-      val BOOKId = SQL("SELECT book_id FROM books WHERE title={title};").on(
-        'title -> title
-      ).as(BOOK_id.parserBookId.*)
-
-      val AUTHORId = SQL("SELECT authors_id FROM authors WHERE name={name};").on(
-        'name -> authors
-      ).as(Author_id.parserAuthorId. *)
-
-      SQL("UPDATE booksAndAuthors SET authors_id={AUTHOR_id} WHERE book_id={BOOK_id}").on(
-        'AUTHOR_id -> BOOKId(0).book_id,
-        'BOOK_id -> AUTHORId(0).author_id
-      ).execute()
-    }
->>>>>>> 7fadd3c348aba0275c02ff55e41576a725bd3510
-
-    println("---------------"+"------------------")
   }
 
 
@@ -142,6 +110,7 @@ dbApi: DBApi) {
   }
 
 }
+
 
 
 

@@ -51,10 +51,7 @@ class Application @Inject()(cc: ControllerComponents, library: Library)
       formWithErrorss => {
         BadRequest(views.html.index(library.allBooks(),BookForm, DeleteBookForm, formWithErrorss))
       }, userData => {
-<<<<<<< HEAD
-=======
-        println("---------------"+"------------------")
->>>>>>> 7fadd3c348aba0275c02ff55e41576a725bd3510
+
         library.update(userData.titleOld, userData.title, userData.year, userData.authors)
         Redirect(routes.Application.getBooks())
       }
