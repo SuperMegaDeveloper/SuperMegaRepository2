@@ -16,5 +16,5 @@ GET     /assets/*file               controllers.Assets.versioned(path="/public",
 POST    /                               controllers.Application.createBook
 GET     /                              controllers.Application.getBooks
 GET     /allAuthors                    controllers.Application.getAuthors
-# DELETE  /deleteBook                    controllers.Application.deleteBook
-# PUT     /updateBook                    controllers.Application.updateBook
+POST    /delete                               controllers.Application.deleteBook
+POST     /updateBook                    controllers.Application.updateBook

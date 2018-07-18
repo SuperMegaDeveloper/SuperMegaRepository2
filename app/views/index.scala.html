@@ -1,4 +1,4 @@
-@(getBooks: List[Book], BookForm: Form[form])(implicit request: RequestHeader, messagesProvider: MessagesProvider)
+@(getBooks: List[Book], BookForm: Form[form], DeleteBookForm: Form[deleteform], UpdateFormBook: Form[updateform])(implicit request: RequestHeader, messagesProvider: MessagesProvider)
 
 @import helper._
 
@@ -20,4 +20,22 @@
     @helper.inputText(BookForm("year"))
     @helper.inputText(BookForm("authors"))
     <input type="submit" value="Create">
+}
+
+<h1>Delete book:</h1>
+@helper.form(action =routes.Application.deleteBook()) {
+@CSRF.formField
+@helper.inputText(DeleteBookForm("title"))
+@helper.inputText(DeleteBookForm("year"))
+<input type="submit" value="Delete">
+}
+
+<h1>Update book:</h1>
+@helper.form(action =routes.Application.updateBook()) {
+@CSRF.formField
+@helper.inputText(UpdateFormBook("titleOld"))
+@helper.inputText(UpdateFormBook("title"))
+@helper.inputText(UpdateFormBook("year"))
+@helper.inputText(UpdateFormBook("authors"))
+<input type="submit" value="Update">
 }
