@@ -1,105 +1,132 @@
 package models
 
 
+import java.lang.ProcessBuilder.Redirect
+import java.util
+
 import anorm._
-
 import com.google.inject.Inject
-import play.api.db.{DBApi}
+import play.api.db.DBApi
+import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
+import play.shaded.ahc.io.netty.util.concurrent.Future
+import slick.jdbc.H2Profile.api._
+import slick.jdbc.JdbcProfile
 
-class Library @Inject()(
-dbApi: DBApi) {
+import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import models.TableBooks
 
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
-  val DB = dbApi.database("default")
+class Library @Inject() (dbApi: DBApi) {
 
+  val db = Database.forConfig("slick-h2")
 
-  def allBooks(): List[Book] = {
+  val tbBooks = TableQuery[TableBooks]
+  val tbAuthors = TableQuery[TableAuthors]
+  val tbBooksAndAuthors =  TableQuery[TableBooksAndAuthors]
+  db.run((tbBooks.schema).create)
+  db.run((tbAuthors.schema).create)
+  db.run((tbBooksAndAuthors.schema).create)
 
-    DB.withConnection { implicit connection =>
-      SQL("SELECT title, year, name FROM (SELECT books.title, books.year, GROUP_CONCAT(name) as name FROM books LEFT JOIN booksAndAuthors ON books.book_id=booksAndAuthors.book_id LEFT JOIN authors ON booksAndAuthors.author_id=authors.author_id GROUP BY title) GROUP BY title;").as(Book.parser.*)
-
-    }
-  }
-
-  def allAuthors(): List[Book] = {
-    DB.withConnection { implicit connection =>
-      SQL("SELECT * FROM authors;").as(Book.parser.*)
-    }
-  }
-
-
-  def create(title: String, year: String, authors: String): Unit = {
-
-    DB.withConnection { implicit connection =>
-
-      val book_id = SQL("insert into books SET title={title}, year={year}").on(
-        'title -> title,
-        'year -> year
-      ).executeInsert()
+  def allBooks() = {
 
 
-      val namesOfAuthors: Array[String] = authors.split(", ")
 
-      for (i <- 0 until namesOfAuthors.length) {
-        val author_id = SQL("insert into authors SET name={name}").on(
-          'name -> namesOfAuthors(i)).executeInsert()
+    val listbook = Await.result(db.run(tbBooks.map(c => (c.title, c.year, c.book_id)).result), Duration.Inf)
+    val listauthors = Await.result(db.run(tbAuthors.map(c => (c.name, c.author_id)).result), Duration.Inf)
+    val listid = Await.result(db.run(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)).result), Duration.Inf)
 
-        SQL("INSERT INTO booksAndAuthors SET book_id={book_id}, author_id={author_id}").on(
-          'book_id -> book_id,
-          'author_id -> author_id
-        ).execute
+    var list:mutable.MutableList[List[Any]] = new mutable.MutableList;
+
+
+    for(i <- 0 until listbook.length) {
+      var names:String = "";
+      list += List(listbook(i)._1, listbook(i)._2, names)
+
+
+      for(j <- 0 until listid.length) {
+        for(l <- 0 until listauthors.length) {
+          if(listbook(i)._3 == listid(j)._1 && listauthors(l)._2 == listid(j)._2) {
+            names = list.get(i).get(2) + listauthors(l)._1+" "
+            list.update(i, List(listbook(i)._1, listbook(i)._2, names))
+          }
+        }
       }
     }
+    list.toList
+  }
+
+  def allAuthors() = {
+//    DB.withConnection { implicit connection =>
+//      SQL("SELECT * FROM authors;").as(Book.parser.*)
+//    }
   }
 
 
-  def delete(title: String, year: String): Unit = {
-    DB.withConnection { implicit connection =>
-      SQL("DELETE from books where title={title} AND year={year}").on(
-        'title -> title,
-        'year -> year
-      ).execute()
+
+  def create(title: String, year: String, authors: String) = {
+    val ListAuthors = authors.split(", ")
+    var DBauthors = Await.result(db.run(tbAuthors.map(c => c.name).result), Duration.Inf)
+    Await.result(db.run(tbBooks.map(c => (c.title, c.year)) += (title, year)), Duration.Inf)
+    val bookId = Await.result(db.run(tbBooks.filter(c => c.title === title).result), Duration.Inf).map(c => c._1)
+
+    for(i <- 0 until ListAuthors.length) {
+      if(DBauthors.isEmpty){
+        Await.result(db.run(tbAuthors.map(c => c.name) += ListAuthors(i)), Duration.Inf)
+        DBauthors = Await.result(db.run(tbAuthors.map(c => c.name).result), Duration.Inf)
+      }
+        if (DBauthors.contains(ListAuthors(i))) {
+          println("author already exists")
+        } else {
+          Await.result(db.run(tbAuthors.map(c => c.name) += ListAuthors(i)), Duration.Inf)
+        }
+        val authorId = Await.result(db.run(tbAuthors.filter(c => c.name === ListAuthors(i)).result), Duration.Inf).map(c => c._1).head
+
+        val insertID = DBIO.seq(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)) += (bookId(0), authorId))
+        Await.result(db.run(insertID.transactionally), Duration.Inf)
+
+
     }
   }
 
 
-  def update(titleOld: String, title: String, year: String, authors: String): Unit = {
-    DB.withConnection { implicit connection =>
-      SQL("UPDATE books SET title={title}, year={year} WHERE title={titleOld}")
-        .on(
-          'title -> title,
-          'year -> year,
-          'titleOld -> titleOld
-        ).execute()
+
+  def delete(title: String): Unit = {
+
+  val bookId = Await.result(db.run(tbBooks.filter(c => c.title === title).result), Duration.Inf).map(c => c._1)
+  Await.result(db.run(tbBooks.filter(c => c.title === title).delete), Duration.Inf)
+  Await.result(db.run(tbBooksAndAuthors.filter(c => c.book_id === bookId(0)).delete), Duration.Inf)
+
+  }
 
 
-      val BOOKId = SQL("SELECT book_id FROM books WHERE title={title}").on(
-        'title -> title
-      ).as(BOOK_id.parserBookId. *)
+  def update(titleOld: String, authorOld: String, title: String, year: String, authors: String): Unit = {
+
+    val names = authors.split(", ")
+    val oldNames = authorOld.split(", ")
 
 
-      val AUTHORId = SQL("SELECT author_id FROM authors WHERE name={name}").on(
-        'name -> authors
-      ).as(Author_id.parserAuthorId.*)
+    for (i <- 0 until names.length) {
 
-      if (AUTHORId.isEmpty) {
-        val AUTHORId =
-          SQL("INSERT INTO authors SET name={name}")
-            .on(
-              'name -> authors
-            ).executeInsert();
+      Await.result(db.run(tbBooks.filter(_.title === titleOld).map(c => (c.title, c.year)).update((title, year))), Duration.Inf)
+      val authorId = Await.result(db.run(tbAuthors.filter(c => c.name === names(i)).result), Duration.Inf).map(c => c._1)
+      val bookId = Await.result(db.run(tbBooks.filter(c => c.title === title).result), Duration.Inf).map(c => c._1)
+      val oldAuthorId = Await.result(db.run(tbAuthors.filter(c => c.name === oldNames(i)).result), Duration.Inf).map(c => c._1)
+      if (authorId.isEmpty) {
+          Await.result(db.run(tbAuthors.map(c => c.name) += names(i)), Duration.Inf)
 
-        SQL("UPDATE booksAndAuthors SET author_id={AUTHOR_id} WHERE book_id={BOOK_id}").on(
-          'AUTHOR_id -> AUTHORId,
-          'BOOK_id -> BOOKId(0).book_id
-        ).execute()
-      }
+          val newAuthorId = Await.result(db.run(tbAuthors.filter(c => c.name === names(i)).result), Duration.Inf).map(c => c._1).head
 
-      else {
-        SQL("UPDATE booksAndAuthors SET author_id={AUTHOR_id} WHERE book_id={BOOK_id}").on(
-          'AUTHOR_id -> AUTHORId(0).author_id,
-          'BOOK_id -> BOOKId(0).book_id
-        ).execute()
+
+          Await.result(db.run(tbBooksAndAuthors.filter(c => c.author_id === oldAuthorId(i) && c.book_id === bookId(0)).map(c => (c.book_id, c.author_id)).update((bookId(0), newAuthorId))), Duration.Inf)
+
+      } else {
+
+        val insertID = DBIO.seq(tbBooksAndAuthors.filter(c => c.author_id === oldAuthorId(i) && c.book_id === bookId(0)).map(c => (c.book_id, c.author_id)).update((bookId(0), authorId(0))))
+        Await.result(db.run(insertID.transactionally), Duration.Inf)
       }
     }
   }

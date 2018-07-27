@@ -1,17 +1,11 @@
-@(getBooks: List[Book], BookForm: Form[form], DeleteBookForm: Form[deleteform], UpdateFormBook: Form[updateform])(implicit request: RequestHeader, messagesProvider: MessagesProvider)
+@(BookForm: Form[form], DeleteBookForm: Form[deleteform], UpdateFormBook: Form[updateform], Books: List[List[Any]])(implicit request: RequestHeader, messagesProvider: MessagesProvider)
 
 @import helper._
-
-
-<h1>Your books:</h1>
-
-
-<ul>
-    @for(book <- getBooks) {
-    <li>@book.title, @book.year, @book.name</li>
-    }
-</ul>
-
+@if(Books.isEmpty){}else{
+@for(books <- Books){
+<td>@books(0), @books(1), @books(2)</td></br>
+}
+}
 
 <h1>Add books:</h1>
 @helper.form(action =routes.Application.createBook()) {
@@ -22,20 +16,22 @@
     <input type="submit" value="Create">
 }
 
-<h1>Delete book:</h1>
+<h1>Delete books:</h1>
 @helper.form(action =routes.Application.deleteBook()) {
 @CSRF.formField
 @helper.inputText(DeleteBookForm("title"))
-@helper.inputText(DeleteBookForm("year"))
 <input type="submit" value="Delete">
 }
 
-<h1>Update book:</h1>
+<h1>Update books:</h1>
 @helper.form(action =routes.Application.updateBook()) {
 @CSRF.formField
-@helper.inputText(UpdateFormBook("titleOld"))
+@helper.inputText(UpdateFormBook("Old_title"))
+@helper.inputText(UpdateFormBook("Old_author"))
 @helper.inputText(UpdateFormBook("title"))
 @helper.inputText(UpdateFormBook("year"))
 @helper.inputText(UpdateFormBook("authors"))
 <input type="submit" value="Update">
 }
+
+

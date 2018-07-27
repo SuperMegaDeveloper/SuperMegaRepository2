@@ -16,7 +16,7 @@ class Application @Inject()(cc: ControllerComponents, library: Library)
     BookForm.bindFromRequest.fold(
 
       formWithErrors => {
-        BadRequest(views.html.index(library.allBooks(), formWithErrors, DeleteBookForm, UpdateBookForm))
+        BadRequest(views.html.index(formWithErrors, DeleteBookForm, UpdateBookForm, library.allBooks()))
       }, userData => {
         library.create(userData.title, userData.year, userData.authors)
         Redirect(routes.Application.getBooks())
@@ -27,36 +27,34 @@ class Application @Inject()(cc: ControllerComponents, library: Library)
 
 
   def getBooks = Action { implicit request =>
-    Ok(views.html.index(library.allBooks(), BookForm, DeleteBookForm, UpdateBookForm));
+    Ok(views.html.index(BookForm, DeleteBookForm, UpdateBookForm, library.allBooks()));
   }
 
   def getAuthors = Action { implicit request =>
-    Ok(views.html.authors(library.allAuthors()));
+    Ok(views.html.index(BookForm, DeleteBookForm, UpdateBookForm, library.allBooks()));
   }
 
 
   def deleteBook = Action { implicit request =>
     DeleteBookForm.bindFromRequest.fold(
       formWithErrorss => {
-        BadRequest(views.html.index(library.allBooks(), BookForm, formWithErrorss, UpdateBookForm))
+        BadRequest(views.html.index(BookForm, formWithErrorss, UpdateBookForm, library.allBooks()))
       }, userData => {
-        library.delete(userData.title, userData.year)
-        Redirect(routes.Application.getBooks())
+        library.delete(userData.title)
       }
     )
+    Redirect(routes.Application.getBooks())
   }
 
   def updateBook = Action { implicit request =>
     UpdateBookForm.bindFromRequest.fold(
       formWithErrorss => {
-        BadRequest(views.html.index(library.allBooks(),BookForm, DeleteBookForm, formWithErrorss))
+        BadRequest(views.html.index(BookForm, DeleteBookForm, formWithErrorss, library.allBooks()))
       }, userData => {
-
-        library.update(userData.titleOld, userData.title, userData.year, userData.authors)
-        Redirect(routes.Application.getBooks())
+        library.update(userData.titleOld, userData.authorOld, userData.title, userData.year, userData.authors)
       }
     )
-
+    Redirect(routes.Application.getBooks())
   }
 
   val BookForm = Form(
@@ -69,19 +67,19 @@ class Application @Inject()(cc: ControllerComponents, library: Library)
 
   val DeleteBookForm = Form(
     mapping (
-      "title" -> nonEmptyText,
-      "year" -> nonEmptyText,
+      "title" -> nonEmptyText
     )(deleteform.apply)(deleteform.unapply)
   )
 
   val UpdateBookForm = Form(
     mapping (
-      "titleOld" -> nonEmptyText,
+      "Old_title" -> nonEmptyText,
+      "Old_author" -> nonEmptyText,
       "title" -> nonEmptyText,
       "year" -> nonEmptyText,
       "authors" -> nonEmptyText
     )(updateform.apply)(updateform.unapply)
-    )
+  )
 
 
 
@@ -89,8 +87,8 @@ class Application @Inject()(cc: ControllerComponents, library: Library)
 
 case class form(title: String, year:String, authors: String)
 
-case class deleteform(title: String, year:String)
+case class deleteform(title: String)
 
-case class updateform(titleOld: String, title:String, year:String, authors: String)
+case class updateform(titleOld: String, authorOld: String, title:String, year:String, authors: String)
 
 
