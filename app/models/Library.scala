@@ -1,24 +1,12 @@
 package models
-
-
-import java.lang.ProcessBuilder.Redirect
-import java.util
-
-import anorm._
 import com.google.inject.Inject
 import play.api.db.DBApi
-import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
-import play.shaded.ahc.io.netty.util.concurrent.Future
 import slick.jdbc.H2Profile.api._
-import slick.jdbc.JdbcProfile
-
-import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import models.TableBooks
+import play.api.libs.json.{JsValue, Json}
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+
 
 class Library @Inject() (dbApi: DBApi) {
 
@@ -27,43 +15,88 @@ class Library @Inject() (dbApi: DBApi) {
   val tbBooks = TableQuery[TableBooks]
   val tbAuthors = TableQuery[TableAuthors]
   val tbBooksAndAuthors =  TableQuery[TableBooksAndAuthors]
-  db.run((tbBooks.schema).create)
-  db.run((tbAuthors.schema).create)
-  db.run((tbBooksAndAuthors.schema).create)
+  db.run(tbBooks.schema.create)
+  db.run(tbAuthors.schema.create)
+  db.run(tbBooksAndAuthors.schema.create)
+
+  case class Book(id: Int, title: String, year: String)
+  case class Author(id: Int, name: String)
+  case class Link(bookId: Int, authorId: Int)
+
+  val listbook = Await.result(db.run(tbBooks.map(c => (c.title, c.year, c.book_id)).result), Duration.Inf)
+  val listauthors = Await.result(db.run(tbAuthors.map(c => (c.name, c.author_id)).result), Duration.Inf)
+  val listid = Await.result(db.run(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)).result), Duration.Inf)
+
+  val books = listbook.flatMap {
+    case (title, year, bookId) => Some(Book(bookId, title, year))
+    case _ => None
+  }.toList
+
+  val authors = listauthors.flatMap {
+    case (name, authorId) => Some(Author(authorId, name))
+    case _ => None
+  }.toList
+
+  val links = listid.flatMap {
+    case (bookId, authorId) => Some(Link(bookId, authorId))
+    case _ => None
+  }.toList
+
+
+  trait Jsons {
+    def allBooks(books: List[Book], authors: List[Author], links: List[Link]): JsValue = {
+
+      val jsonList = books.map(
+        book => {
+          Json.obj(
+            "title" -> book.title,
+            "year" -> book.year,
+            "authors" -> Json.toJson({
+              val authorsIds = links.filter(_.bookId == book.id).map(_.authorId)
+              authors.filter(
+                author => authorsIds.contains(author.id)
+              ).map(
+                author => Json.obj("name" -> author.name)
+              )
+            }
+            )
+          )
+        }
+      )
+      Json.toJson("books" -> jsonList)
+    }
+
+
+    def allAuthors(books: List[Book], authors: List[Author], links: List[Link]): JsValue = {
+      val jsonList = authors.map(
+        author => {
+          Json.obj(
+          "name" -> author.name,
+          "book" -> Json.toJson({
+            val bookIds = links.filter(_.authorId == author.id).map(_.bookId)
+            books.filter(
+              book => bookIds.contains(book.id)
+            ).map(book => Json.obj("title" -> book.title))
+          })
+        )
+        }
+      )
+      Json.toJson("authors" -> jsonList)
+    }
+  }
+
+  object Jsons extends Jsons
+
 
   def allBooks() = {
-
-
-
-    val listbook = Await.result(db.run(tbBooks.map(c => (c.title, c.year, c.book_id)).result), Duration.Inf)
-    val listauthors = Await.result(db.run(tbAuthors.map(c => (c.name, c.author_id)).result), Duration.Inf)
-    val listid = Await.result(db.run(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)).result), Duration.Inf)
-
-    var list:mutable.MutableList[List[Any]] = new mutable.MutableList;
-
-
-    for(i <- 0 until listbook.length) {
-      var names:String = "";
-      list += List(listbook(i)._1, listbook(i)._2, names)
-
-
-      for(j <- 0 until listid.length) {
-        for(l <- 0 until listauthors.length) {
-          if(listbook(i)._3 == listid(j)._1 && listauthors(l)._2 == listid(j)._2) {
-            names = list.get(i).get(2) + listauthors(l)._1+" "
-            list.update(i, List(listbook(i)._1, listbook(i)._2, names))
-          }
-        }
-      }
-    }
-    list.toList
+     Jsons.allBooks(books, authors, links)
   }
 
-  def allAuthors() = {
-//    DB.withConnection { implicit connection =>
-//      SQL("SELECT * FROM authors;").as(Book.parser.*)
-//    }
-  }
+
+
+   def allAuthor() = {
+     Jsons.allAuthors(books, authors, links)
+   }
 
 
 
@@ -87,11 +120,8 @@ class Library @Inject() (dbApi: DBApi) {
 
         val insertID = DBIO.seq(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)) += (bookId(0), authorId))
         Await.result(db.run(insertID.transactionally), Duration.Inf)
-
-
     }
   }
-
 
 
   def delete(title: String): Unit = {
@@ -110,11 +140,11 @@ class Library @Inject() (dbApi: DBApi) {
 
 
     for (i <- 0 until names.length) {
-
+      val oldAuthorId = Await.result(db.run(tbAuthors.filter(c => c.name === oldNames(i)).result), Duration.Inf).map(c => c._1)
       Await.result(db.run(tbBooks.filter(_.title === titleOld).map(c => (c.title, c.year)).update((title, year))), Duration.Inf)
       val authorId = Await.result(db.run(tbAuthors.filter(c => c.name === names(i)).result), Duration.Inf).map(c => c._1)
       val bookId = Await.result(db.run(tbBooks.filter(c => c.title === title).result), Duration.Inf).map(c => c._1)
-      val oldAuthorId = Await.result(db.run(tbAuthors.filter(c => c.name === oldNames(i)).result), Duration.Inf).map(c => c._1)
+
       if (authorId.isEmpty) {
           Await.result(db.run(tbAuthors.map(c => c.name) += names(i)), Duration.Inf)
 
