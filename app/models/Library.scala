@@ -23,27 +23,33 @@ class Library @Inject() (dbApi: DBApi) {
   case class Author(id: Int, name: String)
   case class Link(bookId: Int, authorId: Int)
 
-  val listbook = Await.result(db.run(tbBooks.map(c => (c.title, c.year, c.book_id)).result), Duration.Inf)
-  val listauthors = Await.result(db.run(tbAuthors.map(c => (c.name, c.author_id)).result), Duration.Inf)
-  val listid = Await.result(db.run(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)).result), Duration.Inf)
 
-  val books = listbook.flatMap {
-    case (title, year, bookId) => Some(Book(bookId, title, year))
-    case _ => None
-  }.toList
-
-  val authors = listauthors.flatMap {
-    case (name, authorId) => Some(Author(authorId, name))
-    case _ => None
-  }.toList
-
-  val links = listid.flatMap {
-    case (bookId, authorId) => Some(Link(bookId, authorId))
-    case _ => None
-  }.toList
 
 
   trait Jsons {
+
+    def getValuesFromDB = {
+      val listbook = Await.result(db.run(tbBooks.map(c => (c.title, c.year, c.book_id)).result), Duration.Inf)
+      val listauthors = Await.result(db.run(tbAuthors.map(c => (c.name, c.author_id)).result), Duration.Inf)
+      val listid = Await.result(db.run(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)).result), Duration.Inf)
+
+      val books:List[Book] = listbook.flatMap {
+        case (title, year, bookId) => Some(Book(bookId, title, year))
+        case _ => None
+      }.toList
+
+      val authors: List[Author] = listauthors.flatMap {
+        case (name, authorId) => Some(Author(authorId, name))
+        case _ => None
+      }.toList
+
+      val links: List[Link] = listid.flatMap {
+        case (bookId, authorId) => Some(Link(bookId, authorId))
+        case _ => None
+      }.toList
+      List(books, authors, links)
+    }
+
     def allBooks(books: List[Book], authors: List[Author], links: List[Link]): JsValue = {
 
       val jsonList = books.map(
@@ -89,13 +95,21 @@ class Library @Inject() (dbApi: DBApi) {
 
 
   def allBooks() = {
-     Jsons.allBooks(books, authors, links)
+
+    val b: List[Book] = Jsons.getValuesFromDB(0).asInstanceOf[List[Book]]
+    val a: List[Author] = Jsons.getValuesFromDB(1).asInstanceOf[List[Author]]
+    val l: List[Link] = Jsons.getValuesFromDB(2).asInstanceOf[List[Link]]
+
+     Jsons.allBooks(b, a, l)
   }
 
 
 
    def allAuthor() = {
-     Jsons.allAuthors(books, authors, links)
+     val b: List[Book] = Jsons.getValuesFromDB(0).asInstanceOf[List[Book]]
+     val a: List[Author] = Jsons.getValuesFromDB(1).asInstanceOf[List[Author]]
+     val l: List[Link] = Jsons.getValuesFromDB(2).asInstanceOf[List[Link]]
+     Jsons.allAuthors(b, a, l)
    }
 
 
@@ -117,18 +131,19 @@ class Library @Inject() (dbApi: DBApi) {
           Await.result(db.run(tbAuthors.map(c => c.name) += ListAuthors(i)), Duration.Inf)
         }
         val authorId = Await.result(db.run(tbAuthors.filter(c => c.name === ListAuthors(i)).result), Duration.Inf).map(c => c._1).head
-
-        val insertID = DBIO.seq(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)) += (bookId(0), authorId))
+        val insertID = DBIO.seq(tbBooksAndAuthors.map(c => (c.book_id, c.author_id)) += (bookId.head, authorId))
         Await.result(db.run(insertID.transactionally), Duration.Inf)
     }
+    Json.obj("created" -> title)
   }
 
 
-  def delete(title: String): Unit = {
+  def delete(title: String) = {
 
   val bookId = Await.result(db.run(tbBooks.filter(c => c.title === title).result), Duration.Inf).map(c => c._1)
   Await.result(db.run(tbBooks.filter(c => c.title === title).delete), Duration.Inf)
-  Await.result(db.run(tbBooksAndAuthors.filter(c => c.book_id === bookId(0)).delete), Duration.Inf)
+  Await.result(db.run(tbBooksAndAuthors.filter(c => c.book_id === bookId.head).delete), Duration.Inf)
+  Json.obj("Deleted" -> title)
 
   }
 
@@ -147,14 +162,9 @@ class Library @Inject() (dbApi: DBApi) {
 
       if (authorId.isEmpty) {
           Await.result(db.run(tbAuthors.map(c => c.name) += names(i)), Duration.Inf)
-
           val newAuthorId = Await.result(db.run(tbAuthors.filter(c => c.name === names(i)).result), Duration.Inf).map(c => c._1).head
-
-
           Await.result(db.run(tbBooksAndAuthors.filter(c => c.author_id === oldAuthorId(i) && c.book_id === bookId(0)).map(c => (c.book_id, c.author_id)).update((bookId(0), newAuthorId))), Duration.Inf)
-
       } else {
-
         val insertID = DBIO.seq(tbBooksAndAuthors.filter(c => c.author_id === oldAuthorId(i) && c.book_id === bookId(0)).map(c => (c.book_id, c.author_id)).update((bookId(0), authorId(0))))
         Await.result(db.run(insertID.transactionally), Duration.Inf)
       }
@@ -162,11 +172,11 @@ class Library @Inject() (dbApi: DBApi) {
   }
 
 
-  object Library {
-
-  }
 
 }
+
+
+object Library
 
 
 
